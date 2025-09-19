@@ -58,6 +58,22 @@ eval (If cond e1 e2) = do
 eval (Let var e1 e2) = do
   v1 <- eval e1
   localEnv (envExtend var v1) $ eval e2
+eval (ForLoop (loopparam, initial) (iv, bound) body) = do
+  initial_v <- eval initial
+  bound_v <- eval bound
+  case bound_v of
+    ValInt bound_int ->
+      loop 0 bound_int initial_v
+    _ ->
+      failure "Non-integral loop bound"
+  where
+    loop i bound_int loop_v
+      | i >= bound_int = pure loop_v
+      | otherwise = do
+          loop_v' <-
+            localEnv (envExtend iv (ValInt i) . envExtend loopparam loop_v) $
+              eval body
+          loop (succ i) bound_int loop_v'
 eval (Lambda var body) = do
   env <- askEnv
   pure $ ValFun env var body
