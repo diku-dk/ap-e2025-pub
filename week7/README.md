@@ -30,7 +30,10 @@ of cellular automatons where the grid is partitioned into non-overlapping blocks
 and interactions take place only for the cells inside each block. By regularly
 shifting the partition of the grid into blocks, a cell still gets to eventually
 interact with all of its neighbours. Block cellular automatons are useful when
-the interactions are complicated. For these exercises we use the [*Margolus
+the interactions are complicated or involve physical properties - for example,
+they are commonly used for [falling-sand
+games](https://en.wikipedia.org/wiki/Falling-sand_game). For these exercises we
+use the [*Margolus
 neighbourhood*](https://en.wikipedia.org/wiki/Block_cellular_automaton#Neighborhoods)
 partitioning scheme, which is demonstrated below. Note that we assume a world
 shaped like a torus (or donut), where the neighbours of a cell at the edges are
@@ -41,6 +44,11 @@ found by wrapping around to the opposite edge.
 The numbers serve only to identify which cells belong to the same
 neighbourhood---this is significant only in the odd case, where the
 neighbourhoods wrap around the edges of the grid.
+
+**Note:** Margolus neighbourhoods are only well-defined when the grid size is an
+even number in both dimensions. For these exercises we will assume that this is
+always the case. For that matter, we will also assume that the grid always has a
+width and height greater than zero.
 
 For each iteration and partioning of the grid into Margolus neighbourhoods, each
 neighbourhood is updated as follows:
@@ -196,6 +204,8 @@ Finally, make sure the following things are exported from `BlockAutomaton.Rules`
 
 ### A Grid Abstraction
 
+Now we move on to implementing the module `BlockAutomaton.Simulation`.
+
 Before we can implement the execution of a block automaton, we will build a
 small abstraction for torus/donut-shaped grids. This will take the form of a
 type `Grid a`, representing grids where each cell contains an `a`. For
@@ -254,35 +264,290 @@ gridUpdate (i, j) x g =
 
 </details>
 
-### Simulating block cellular automatons
+Finally, define a function `positions` that returns all valid indices into a
+grid of some given size.
+
+```Haskell
+positions :: Int -> Int -> [[(Int, Int)]]
+```
 
 <details> <summary>Open this to see the answer</summary>
 
 ```Haskell
-
+positions :: Int -> Int -> [[(Int, Int)]]
+positions h w = map (\i -> map (\j -> (i, j)) [0 .. w - 1]) [0 .. h - 1]
 ```
 
 </details>
 
-### The Rock-Paper-Scissors Multi-Actor Duel
+### Simulating block cellular automata
+
+Now we can define the crucial functions for initialising a cellular automaton,
+observing its state., and executing one iteration of it.
+
+We will start with initialisation. Define a function
+
+```Haskell
+initialGrid :: Rules state obs -> Int -> Int -> Grid (MargolusPos, state)
+```
+
+that given a ruleset and a grid size creates a `Grid` of pair of Margolus
+positions (remember `margolusInitial`) and initial cell states. You will need to
+use the `rulesInitial` function from the `Rules` record. Once you have
+implemented `initialGrid`, you can apply it to the `smoothen` ruleset you
+defined previously:
+
+```
+> initialGrid smoothen 4 4
+[[(UL,0.0),(UR,1.0),(UL,2.0),(UR,3.0)],
+ [(LL,1.0),(LR,2.0),(LL,3.0),(LR,4.0)],
+ [(UL,2.0),(UR,3.0),(UL,4.0),(UR,5.0)],
+ [(LL,3.0),(LR,4.0),(LL,5.0),(LR,6.0)]]
+```
 
 <details> <summary>Open this to see the answer</summary>
 
 ```Haskell
-data Decider = Decider RPS Decider
-
-decide :: Decider -> StdGen -> (RPS, Decider)
-decide (Decider decision next) r = (decision, next)
-
-alwaysRock :: CellDecider
-alwaysRock = CellDecider Rock alwaysRock
-
-alwaysPaper :: CellDecider
-alwaysPaper = CellDecider Paper alwaysPaper
-
-alwaysScissors :: CellDecider
-alwaysScissors = CellDecider Scissors alwaysScissor
+initialGrid :: Rules state obs -> Int -> Int -> Grid (MargolusPos, state)
+initialGrid rules h w =
+  map
+    (map (\(i, j) -> (margolusInitial (i, j), rulesInitial rules (i, j))))
+    (positions h w)
 ```
+
+</details>
+
+Next define a function
+
+```Haskell
+observeGrid :: Rules state obs -> Grid (MargolusPos, state) -> Grid obs
+```
+
+that performs an observation of every cell. This is fairly easy: just apply the
+`rulesObserve` function to every cell.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+observeGrid :: Rules state obs -> Grid (MargolusPos, state) -> Grid obs
+observeGrid rules = map (map (rulesObserve rules . snd))
+```
+
+</details>
+
+The next function is by far the most complicated one, as it is the one that
+actually evolves the state of the simulation. To break it down, we will actually
+define a function that evolves *one* neighbourhood with an upper-left corner at
+a given position `(i,j)`.
+
+Specifically, define a function
+
+```Haskell
+margolusInteract ::
+  Rules state obs ->
+  (Int, Int) ->
+  Grid (MargolusPos, state) ->
+  Grid (MargolusPos, state)
+```
+
+such that `margolusInteract rules (i,j) g` returns a new grid such that the
+cells comprising the Margolus neighbourhood `(i,j)`, `(i+1,j)`, `(i,j+1)`, and
+`(i+1,j+1)` have been updated accordingly. The cell at `(i,j)` is assumed to be
+in the `UL` position. The approach is as follows:
+
+1. Read the contents of the four cells via `gridIndex`.
+2. Perform interaction with `rulesInteract` between the `UL` cell and the `UR`
+   cell.
+3. Perform interaction with `rulesInteract` between the `LL` cell and the `LR`
+   cell.
+4. Perform interaction with `rulesInteract` between the `UL` cell and the `LL`
+   cell.
+5. Perform interaction with `rulesInteract` between the `UR` cell and the `LR`
+   cell.
+6. Store the updated cells in the grid via `gridUpdate`.
+
+Remember that step 2 produces new `UL` and `UR` cells states, which must be used
+in steps 4 and 5 (although the grid need not be updated until the very end).
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+margolusInteract ::
+  Rules state obs ->
+  (Int, Int) ->
+  Grid (MargolusPos, state) ->
+  Grid (MargolusPos, state)
+margolusInteract rules (i, j) g =
+  let (_, ul) = gridIndex (i, j) g
+      (_, ur) = gridIndex (i, j + 1) g
+      (_, ll) = gridIndex (i + 1, j) g
+      (_, lr) = gridIndex (i + 1, j + 1) g
+      (ul', ur') = rulesInteract rules (ul, ur)
+      (ll', lr') = rulesInteract rules (ll, lr)
+      (ul'', ll'') = rulesInteract rules (ul', ll')
+      (ur'', lr'') = rulesInteract rules (ur', lr')
+   in gridUpdate (i, j) (UL, ul'') $
+        gridUpdate (i, j + 1) (UR, ur'') $
+          gridUpdate (i + 1, j) (LL, ll'') $
+            gridUpdate (i + 1, j + 1) (LR, lr'') g
+```
+
+</details>
+
+Now we can define a function that evolves a cell at a given position. If that
+cell is located in the `UL` corner of its Margolus neighbourhood, then (and only
+then!) do we then carry out interactions within that neighbourhood using
+`margolusInteract`. In all other cases, the cell is unchanged. The intuition is
+that the `UL` cell is responsible for carrying out all the interactions, and the
+others are passive.
+
+Define a function
+
+```Haskell
+stepOne ::
+  Rules state obs ->
+  (Int, Int) ->
+  Grid (MargolusPos, state) ->
+  Grid (MargolusPos, state)
+```
+
+that behaves as described.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+stepOne ::
+  Rules state obs ->
+  (Int, Int) ->
+  Grid (MargolusPos, state) ->
+  Grid (MargolusPos, state)
+stepOne rules (i, j) g =
+  case gridIndex (i, j) g of
+    (UL, _) -> margolusInteract rules (i, j) g
+    _ -> g
+```
+
+</details>
+
+Finally we can define the function for performing a full step of the entire
+grid:
+
+```Haskell
+stepGrid ::
+  Rules state obs ->
+  Grid (MargolusPos, state) ->
+  Grid (MargolusPos, state)
+```
+
+This involves first mapping `stepOne` over every position in the grid (in order
+to update all the neighbourhoods), then shifting the Margolus position of each
+cell (with `margolusShift`).
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+stepGrid ::
+  Rules state obs ->
+  Grid (MargolusPos, state) ->
+  Grid (MargolusPos, state)
+stepGrid rules g =
+  map (map shiftCell) $ foldr (stepOne rules) g (concat $ positions h w)
+  where
+    shiftCell (pos, s) = (margolusShift pos, s)
+    h = length g
+    w = length $ g !! 0
+```
+
+</details>
+
+Congratulations! You have now defined a (somewhat inefficient) simulator for
+block automatons via Margolus neighbourhoods. Remember to export the
+`initialGrid`, `stepGrid`, and `observeGrid` functions from the module. The
+simulator can be used like so:
+
+```
+> > observeGrid smoothen $ stepGrid smoothen $ initialGrid smoothen 4 4
+[[1,1,3,3],[1,1,3,3],[3,3,5,5],[3,3,5,5]]
+```
+
+This is not a very exciting simulation. The next exercise aims to rectify that.
+
+### The Rock-Paper-Scissors Multi-Actor Duel
+
+We will now implement a more interesting rule set that models a competition
+between different strategies playing a game. The game is the famous *sport of
+kings* [Rock-Paper-Scissors](https://en.wikipedia.org/wiki/Rock_paper_scissors);
+one of the few games where computers have yet to outperform humans. Each cell
+represents some actor or strategy, and when two cells interact, they each throw
+rock, paper, or scissor, with the winner (if any) taking over the cell of the
+loser. Different strategies will be visualised using different colours, leading
+to an evolving colourful grid that shows how superior strategies outcompete
+weaker ones.
+
+Our implementation lives in the module `BlockAutomaton.RPS`, and the starting
+point is an implementation of the basic game mechanics:
+
+```Haskell
+data RPS = Rock | Paper | Scissors
+  deriving (Eq, Show)
+
+defeats :: RPS -> RPS -> Bool
+defeats Paper Rock = True
+defeats Scissors Paper = True
+defeats Rock Scissors = True
+defeats _ _ = False
+```
+
+A *strategy* is modelled as a pair of the next action to take and the next
+strategy to follow.
+
+```Haskell
+data Strategy = Strategy RPS Strategy
+```
+
+The function `decide` retrieves the decision from a `Strategy` as well as the
+residual `Strategy`.
+
+```Haskell
+decide :: Strategy -> StdGen -> (RPS, StdGen, Strategy)
+decide (Strategy f) r = f r
+```
+
+Already we can define some simple strategies. Start by defining the bold
+strategy of always picking `Rock`.
+
+```Haskell
+alwaysRock :: Strategy
+```
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+alwaysRock :: Strategy
+alwaysRock = Strategy Rock alwaysRock
+```
+
+</details>
+
+We can test it out as follows:
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+decide :: Strategy -> (RPS, Strategy)
+decide (Strategy decision next) r = (decision, next)
+
+alwaysRock :: Strategy
+alwaysRock = Strategy Rock alwaysRock
+
+alwaysPaper :: Strategy
+alwaysPaper = Strategy Paper alwaysPaper
+
+alwaysScissors :: Strategy
+alwaysScissors = Strategy Scissors alwaysScissor
+```
+
+</details>
 
 ### Visualisation
 

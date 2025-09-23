@@ -1,4 +1,4 @@
-module BlockAutomaton.Simulation (initialGrid, stepGrid, observeGrid) where
+module BlockAutomaton.Simulation (Grid, initialGrid, stepGrid, observeGrid) where
 
 import BlockAutomaton.Rules
 
@@ -24,7 +24,31 @@ positions h w = map (\i -> map (\j -> (i, j)) [0 .. w - 1]) [0 .. h - 1]
 
 initialGrid :: Rules state obs -> Int -> Int -> Grid (MargolusPos, state)
 initialGrid rules h w =
-  map (map (\(i, j) -> (margolusInitial (i, j), rulesInitial rules (i, j)))) (positions h w)
+  map
+    (map (\(i, j) -> (margolusInitial (i, j), rulesInitial rules (i, j))))
+    (positions h w)
+
+observeGrid :: Rules state obs -> Grid (MargolusPos, state) -> Grid obs
+observeGrid rules = map (map (rulesObserve rules . snd))
+
+margolusInteract ::
+  Rules state obs ->
+  (Int, Int) ->
+  Grid (MargolusPos, state) ->
+  Grid (MargolusPos, state)
+margolusInteract rules (i, j) g =
+  let (_, ul) = gridIndex (i, j) g
+      (_, ur) = gridIndex (i, j + 1) g
+      (_, ll) = gridIndex (i + 1, j) g
+      (_, lr) = gridIndex (i + 1, j + 1) g
+      (ul', ur') = rulesInteract rules (ul, ur)
+      (ll', lr') = rulesInteract rules (ll, lr)
+      (ul'', ll'') = rulesInteract rules (ul', ll')
+      (ur'', lr'') = rulesInteract rules (ur', lr')
+   in gridUpdate (i, j) (UL, ul'') $
+        gridUpdate (i, j + 1) (UR, ur'') $
+          gridUpdate (i + 1, j) (LL, ll'') $
+            gridUpdate (i + 1, j + 1) (LR, lr'') g
 
 stepOne ::
   Rules state obs ->
@@ -32,31 +56,17 @@ stepOne ::
   Grid (MargolusPos, state) ->
   Grid (MargolusPos, state)
 stepOne rules (i, j) g =
-  let (pos, ul) = gridIndex (i, j) g
-   in case pos of
-        UL ->
-          let (_, ur) = gridIndex (i, j + 1) g
-              (_, ll) = gridIndex (i + 1, j) g
-              (_, lr) = gridIndex (i + 1, j + 1) g
-              (ul', ur') = rulesInteract rules (ul, ur)
-              (ll', lr') = rulesInteract rules (ll, lr)
-              (ul'', ll'') = rulesInteract rules (ul', ll')
-              (ur'', lr'') = rulesInteract rules (ur', lr')
-           in gridUpdate (i, j) (UL, ul'') $
-                gridUpdate (i, j + 1) (UR, ur'') $
-                  gridUpdate (i + 1, j) (LL, ll'') $
-                    gridUpdate (i + 1, j + 1) (LR, lr'') g
-        _ -> g
+  case gridIndex (i, j) g of
+    (UL, _) -> margolusInteract rules (i, j) g
+    _ -> g
 
 stepGrid ::
   Rules state obs ->
   Grid (MargolusPos, state) ->
   Grid (MargolusPos, state)
-stepGrid rules g = map (map shiftCell) $ foldr (stepOne rules) g (concat $ positions h w)
+stepGrid rules g =
+  map (map shiftCell) $ foldr (stepOne rules) g (concat $ positions h w)
   where
     shiftCell (pos, s) = (margolusShift pos, s)
     h = length g
     w = length $ g !! 0
-
-observeGrid :: Rules state obs -> Grid (MargolusPos, state) -> Grid obs
-observeGrid rules = map (map (rulesObserve rules . snd))

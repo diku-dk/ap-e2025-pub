@@ -14,38 +14,38 @@ defeats Scissors Paper = True
 defeats Rock Scissors = True
 defeats _ _ = False
 
-data Decider = Decider (StdGen -> (RPS, StdGen, Decider))
+data Strategy = Strategy (StdGen -> (RPS, StdGen, Strategy))
 
-decide :: Decider -> StdGen -> (RPS, StdGen, Decider)
-decide (Decider f) r = f r
+decide :: Strategy -> StdGen -> (RPS, StdGen, Strategy)
+decide (Strategy f) r = f r
 
 data RPSCell = RPSCell
-  { cellDecider :: Decider,
+  { cellStrategy :: Strategy,
     cellColour :: Colour,
     cellRNG :: StdGen
   }
 
-cycleRPS :: [RPS] -> Decider
+cycleRPS :: [RPS] -> Strategy
 cycleRPS all_rps = go all_rps
   where
     go [] = cycleRPS all_rps
-    go (d : ds) = Decider $ \r -> (d, r, go ds)
+    go (d : ds) = Strategy $ \r -> (d, r, go ds)
 
-alwaysRock :: Decider
+alwaysRock :: Strategy
 alwaysRock = cycleRPS [Rock]
 
-alwaysPaper :: Decider
+alwaysPaper :: Strategy
 alwaysPaper = cycleRPS [Paper]
 
-alwaysScissors :: Decider
+alwaysScissors :: Strategy
 alwaysScissors = cycleRPS [Scissors]
 
-randomlyFrom :: [RPS] -> Decider
-randomlyFrom xs = Decider $ \r ->
+randomlyFrom :: [RPS] -> Strategy
+randomlyFrom xs = Strategy $ \r ->
   let (l, r') = uniformR (0, length xs - 1) r
    in (xs !! l, r', randomlyFrom xs)
 
-strategies :: [(Decider, Colour)]
+strategies :: [(Strategy, Colour)]
 strategies =
   [ (alwaysRock, RGB 255 0 0),
     (alwaysPaper, RGB 0 255 0),
@@ -63,29 +63,29 @@ rpsInitial s (i, j) =
       (l, r') = uniformR (0, n - 1) r
       (d, c) = strategies !! l
    in RPSCell
-        { cellDecider = d,
+        { cellStrategy = d,
           cellColour = c,
           cellRNG = r'
         }
 
 rpsInteract :: (RPSCell, RPSCell) -> (RPSCell, RPSCell)
 rpsInteract (a, b) =
-  let (decision_a, r_a, next_a) = decide (cellDecider a) (cellRNG a)
-      (decision_b, r_b, next_b) = decide (cellDecider b) (cellRNG b)
+  let (decision_a, r_a, next_a) = decide (cellStrategy a) (cellRNG a)
+      (decision_b, r_b, next_b) = decide (cellStrategy b) (cellRNG b)
    in if decision_a `defeats` decision_b
         then
-          ( a {cellDecider = next_a, cellRNG = r_a},
-            b {cellDecider = next_a, cellRNG = r_b, cellColour = cellColour a}
+          ( a {cellStrategy = next_a, cellRNG = r_a},
+            b {cellStrategy = next_a, cellRNG = r_b, cellColour = cellColour a}
           )
         else
           if decision_b `defeats` decision_a
             then
-              ( a {cellDecider = next_b, cellRNG = r_a, cellColour = cellColour b},
-                b {cellDecider = next_b, cellRNG = r_b}
+              ( a {cellStrategy = next_b, cellRNG = r_a, cellColour = cellColour b},
+                b {cellStrategy = next_b, cellRNG = r_b}
               )
             else
-              ( a {cellDecider = next_a, cellRNG = r_a},
-                b {cellDecider = next_b, cellRNG = r_b}
+              ( a {cellStrategy = next_a, cellRNG = r_a},
+                b {cellStrategy = next_b, cellRNG = r_b}
               )
 
 rpsObserve :: RPSCell -> Colour
