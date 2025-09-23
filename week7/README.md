@@ -162,7 +162,7 @@ smoothen :: Rules Double Int
 
 such that
 
-* Each cell *(i,j)* initially has the value *i+j*.
+* Each cell *(i,j)* initially has the value *i+j* (as a `Double`).
 
 * When two cells interact, they each end up with a state that is half of their
   summed states (i.e., take the average of the two states).
@@ -186,13 +186,73 @@ smoothen =
 
 Finally, make sure the following things are exported from `BlockAutomaton.Rules`:
 
-```
+```Haskell
   ( Rules (..),
     MargolusPos (..),
     margolusInitial,
     margolusShift,
   )
 ```
+
+### A Grid Abstraction
+
+Before we can implement the execution of a block automaton, we will build a
+small abstraction for torus/donut-shaped grids. This will take the form of a
+type `Grid a`, representing grids where each cell contains an `a`. For
+simplicity, our grid is just a list of lists:
+
+```Haskell
+type Grid a = [[a]]
+```
+
+Now define a function
+
+```Haskell
+gridIndex :: (Int, Int) -> Grid a -> a
+```
+
+such that `gridIndex (i,j) g` fetches the element at row `i` column `j` from
+`g`, *but* with wraparound in case `i` and `j` are out of bounds. Essentially,
+fetch the element at row `i mod n` and column `j mod m` where `n` and `m` are
+the height and width of the grid. (It is permissible to crash if `g` is empty.)
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+gridIndex :: (Int, Int) -> Grid a -> a
+gridIndex (i, j) g =
+  let row = g !! (i `mod` length g)
+   in row !! (j `mod` length row)
+
+```
+
+</details>
+
+Now define a similar function that *changes* an element at a given position
+(still with wraparound):
+
+```Haskell
+gridUpdate :: (Int, Int) -> a -> Grid a -> Grid a
+```
+
+Do not worry about efficiency - the intended solution is really as nasty as you
+may imagine.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+gridUpdate :: (Int, Int) -> a -> Grid a -> Grid a
+gridUpdate (i, j) x g =
+  case splitAt (i `mod` length g) g of
+    (rows_bef, row : rows_aft) ->
+      case splitAt (j `mod` length row) row of
+        (elems_bef, _ : elems_aft) ->
+          rows_bef ++ [elems_bef ++ x : elems_aft] ++ rows_aft
+        _ -> error "column out of bounds"
+    _ -> error "row out of bounds"
+```
+
+</details>
 
 ### Simulating block cellular automatons
 
