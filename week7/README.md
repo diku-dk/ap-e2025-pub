@@ -506,14 +506,16 @@ data Strategy = Strategy RPS Strategy
 ```
 
 The function `decide` retrieves the decision from a `Strategy` as well as the
-residual `Strategy`.
+`Strategy` to follow after this decision. (That is, a `Strategy` is essentially
+an infinite list, which is possible due to laziness, although this is not an
+important point here.)
 
 ```Haskell
-decide :: Strategy -> StdGen -> (RPS, StdGen, Strategy)
-decide (Strategy f) r = f r
+decide :: Strategy -> (RPS, Strategy)
+decide (Strategy decision next) = (decision, next)
 ```
 
-Already we can define some simple strategies. Start by defining the bold
+Already we can define some simple strategies. Start by defining the confident
 strategy of always picking `Rock`.
 
 ```Haskell
@@ -531,23 +533,204 @@ alwaysRock = Strategy Rock alwaysRock
 
 We can test it out as follows:
 
+```
+> fst $ decide alwaysRock
+Rock
+> fst $ decide $ snd $ decide alwaysRock
+Rock
+```
+
+Just for completeness, define the similarly bold strategies:
+
+```
+alwaysPaper :: Strategy
+alwaysScissors :: Strategy
+```
+
 <details> <summary>Open this to see the answer</summary>
 
 ```Haskell
-decide :: Strategy -> (RPS, Strategy)
-decide (Strategy decision next) r = (decision, next)
-
-alwaysRock :: Strategy
-alwaysRock = Strategy Rock alwaysRock
-
 alwaysPaper :: Strategy
 alwaysPaper = Strategy Paper alwaysPaper
 
 alwaysScissors :: Strategy
-alwaysScissors = Strategy Scissors alwaysScissor
+alwaysScissors = Strategy Scissors alwaysScissors
 ```
 
 </details>
+
+We will keep all the strategies in a list, along with a representative colour.
+
+```Haskell
+data Colour = RGB Int Int Int deriving (Show, Eq)
+
+strategies :: [(Strategy, Colour)]
+strategies =
+  [ (alwaysRock, RGB 255 0 0),
+    (alwaysPaper, RGB 0 255 0),
+    (alwaysScissors, RGB 0 0 255)
+  ]
+```
+
+Now we are ready to define the actual cellular automaton. The state of a cell
+will comprise a strategy and its colour.
+
+```Haskell
+data RPSCell = RPSCell
+  { cellStrategy :: Strategy,
+    cellColour :: Colour
+  }
+```
+
+#### An aside on random numbers
+
+We wish to initialise our automaton with a random strategy. However, Haskell is
+a pure language, so generating random numbers is a little intricate. To generate
+random numbers, we use the module `System.Random`. Add the following import
+declaration:
+
+```Haskell
+import System.Random (StdGen, mkStdGen, uniformR)
+```
+
+An `StdGen` is a random number generator. An `StdGen` is constructed with the
+function `mkStdGen`, which is passed an integer as a seed. There are various
+ways to generate random values from an `StdGen`. The one we will use is
+`uniformR`, which has a very polymorphic and class-heavy type, but for the
+purpose of generating random integers from an `StdGen`, we can see it as having
+the following monomorphic type:
+
+```Haskell
+uniformR :: (Int, Int) -> StdGen -> (Int, StdGen)
+```
+
+Specifically, an application `uniformR (x,y) r` will generate an integer in the
+range `[x,y]` (inclusive bounds) from a given `StdGen`, and return the random
+integer as well as a new `StdGen`. Example:
+
+```
+> uniformR (1,6) (mkStdGen 0)
+(4,StdGen {unStdGen = SMGen 1272552114439021963 13161956497586561035})
+```
+
+(The details internal state of the `StdGen`, which is printed above, do not
+matter.) Using the same `StdGen` multiple times results in the same number being
+returned:
+
+```
+> let rng = mkStdGen 1337 in (fst (uniformR (1,6) rng), fst (uniformR (1,6) rng))
+(4,4)
+```
+
+Instead, we must use the new `StdGen` returned by `uniformR` to produce the next
+number:
+
+```
+> let rng0 = mkStdGen 1337; (x, rng1) = uniformR (1,6) rng0; (y, rng2) = uniformR (1,6) rng1 in (x,y)
+(4,2)
+```
+
+#### Defining the automatons
+
+*Now* we are ready to implement the three functions that define our automaton.
+First, `rpsObserve` is trivial.
+
+```Haskell
+rpsObserve :: RPSCell -> Colour
+rpsObserve = cellColour
+```
+
+The `rpsInitial` function is a little tricker, because we wish to pick a random
+strategy for each cell. First, we add an additional `Int` parameter *s* to function
+as a random seed, such that not every initialisation will be the same.
+
+```Haskell
+rpsInitial :: Int -> (Int, Int) -> RPSCell
+```
+
+Now the procedure is to generate a `StdGen` using seed `s + i * 10000 + j` -
+this means every cell will have a (potentially) different `StdGen`. Using this
+`StdGen`, pick a random element from the `strategies` list. This is done by
+generating a random number in the range `[1, length strategies]`, then indexing
+with `!!`. Finally, construct an `RPSCell` that contains the picked colour and
+strategy.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+rpsInitial :: Int -> (Int, Int) -> RPSCell
+rpsInitial s (i, j) =
+  let r = mkStdGen (s + i * 10000 + j)
+      n = length strategies
+      (l, _) = uniformR (0, n - 1) r
+      (d, c) = strategies !! l
+   in RPSCell
+        { cellStrategy = d,
+          cellColour = c
+        }
+
+```
+
+</details>
+
+Next, define the function
+
+```Haskell
+rpsInteract :: (RPSCell, RPSCell) -> (RPSCell, RPSCell)
+```
+
+Use `cellStrategy` and `decide` to make each cell decide what to do, then use
+`defeats` to determine who (if any) wins:
+
+* If cell *a* defeats cell *b*, then replace the colour and strategy of cell *b*
+  with those of cell *a*.
+
+* If cell *b* defeats cell *a*, then replace the colour and strategy of cell *a*
+  with those of cell *b*.
+
+In all cases, also when there is no winner, remember to update the
+`cellStrategy` fields with the new strategy returned by `decide`.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+rpsInteract :: (RPSCell, RPSCell) -> (RPSCell, RPSCell)
+rpsInteract (a, b) =
+  let (decision_a, next_a) = decide (cellStrategy a)
+      (decision_b, next_b) = decide (cellStrategy b)
+   in if decision_a `defeats` decision_b
+        then
+          ( a {cellStrategy = next_a},
+            b {cellStrategy = next_a, cellColour = cellColour a}
+          )
+        else
+          if decision_b `defeats` decision_a
+            then
+              ( a {cellStrategy = next_b, cellColour = cellColour b},
+                b {cellStrategy = next_b}
+              )
+            else
+              ( a {cellStrategy = next_a},
+                b {cellStrategy = next_b}
+              )
+```
+
+</details>
+
+Finally, we can define the ruleset, which is parameterised on some outside seed
+`s`:
+
+```Haskell
+rps :: Int -> Rules RPSCell Colour
+rps s =
+  Rules
+    { rulesInitial = rpsInitial s,
+      rulesInteract = rpsInteract,
+      rulesObserve = rpsObserve
+    }
+```
+
+Make sure the module exports `Colour(..)` and `rps`.
 
 ### Visualisation
 
@@ -565,3 +748,198 @@ $ cabal run -- viewer H W
 ```
 
 to run on a grid of size *H* by *W*.
+
+That's it - there is nothing to do here. Just sit back and enjoy the
+[Blinkenlights](https://en.wikipedia.org/wiki/Blinkenlights).
+
+### Better Strategies
+
+Although bold, the strategies defined above are perhaps not the best. To make it
+easy to define new strategies, implement a helper function for defining a
+strategy that cycles between a given list of options:
+
+```Haskell
+cycleRPS :: [RPS] -> Strategy
+```
+
+Once `cycleRPS` has been defined, the previous strategies can be defined as
+follows:
+
+```Haskell
+alwaysRock :: Strategy
+alwaysRock = cycleRPS [Rock]
+
+alwaysPaper :: Strategy
+alwaysPaper = cycleRPS [Paper]
+
+alwaysScissors :: Strategy
+alwaysScissors = cycleRPS [Scissors]
+```
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+cycleRPS :: [RPS] -> Strategy
+cycleRPS all_rps = go all_rps
+  where
+    go [] = cycleRPS all_rps
+    go (d : ds) = Strategy d (go ds)
+```
+
+</details>
+
+More importantly, we can now define some slightly less monotonous strategies:
+
+```Haskell
+strategies :: [(Strategy, Colour)]
+strategies =
+  [ (alwaysRock, RGB 255 0 0),
+    (alwaysPaper, RGB 0 255 0),
+    (alwaysScissors, RGB 0 0 255),
+    (cycleRPS [Rock, Paper, Scissors], RGB 255 0 255),
+    (cycleRPS [Scissors, Rock, Paper], RGB 0 255 255),
+    (cycleRPS [Paper, Rock, Scissors], RGB 100 255 255)
+  ]
+```
+
+Try running the visualisation again and enjoy the now slightly different
+colours.
+
+### Randomisation
+
+As a famous strategist once stated, ["in the game of chess, never let your
+adversary see your pieces"](https://theinfosphere.org/Zapp_Brannigan#Quotes).
+Similarly, in a game of chance, always make decisions randomly. As a final
+tweak, we will make it possible to incorporate randomness in our strategies.
+
+To do this, we will modify definition of `Strategy` such that it accepts and
+returns a `StdGen`, which it can use for making randomised decisions - this is
+quite similar to how the `State` monad operates.
+
+```Haskell
+data Strategy = Strategy (StdGen -> (RPS, StdGen, Strategy))
+```
+
+We also change the definition of `RPSCell` such that it now contains a `StdGen`.
+
+```Haskell
+data RPSCell = RPSCell
+  { cellStrategy :: Strategy,
+    cellColour :: Colour,
+    cellRNG :: StdGen
+  }
+```
+
+This will make most of the code in the `BlockAutomaton.RPS` module
+type-incorrect - you can either comment out parts while you update them, or
+update them all at once.
+
+First we must similarly update the `decide` function:
+
+```Haskell
+decide :: Strategy -> StdGen -> (RPS, StdGen, Strategy)
+decide (Strategy f) r = f r
+```
+
+Then update the `cycleRPS` function. This function does not actually use the
+`StdGen` for anything, so it should just return it unchanged.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+cycleRPS :: [RPS] -> Strategy
+cycleRPS all_rps = go all_rps
+  where
+    go [] = cycleRPS all_rps
+    go (d : ds) = Strategy $ \r -> (d, r, go ds)
+```
+
+</details>
+
+Finally, define a function
+
+```Haskell
+randomlyFrom :: [RPS] -> Strategy
+```
+
+that picks a random element from a list every time it has to make a decision.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+randomlyFrom :: [RPS] -> Strategy
+randomlyFrom xs = Strategy $ \r ->
+  let (l, r') = uniformR (0, length xs - 1) r
+   in (xs !! l, r', randomlyFrom xs)
+```
+
+</details>
+
+This we can now use to add a fully random strategy to our strategy list:
+
+```Haskell
+strategies :: [(Strategy, Colour)]
+strategies =
+  [ (alwaysRock, RGB 255 0 0),
+    (alwaysPaper, RGB 0 255 0),
+    (alwaysScissors, RGB 0 0 255),
+    (cycleRPS [Rock, Paper, Scissors], RGB 255 0 255),
+    (cycleRPS [Scissors, Rock, Paper], RGB 0 255 255),
+    (cycleRPS [Paper, Rock, Scissors], RGB 100 255 255),
+    (randomlyFrom [Rock, Paper, Scissors], RGB 255 255 255)
+  ]
+```
+
+Now update the `rpsInitial` function. Simply take the `StdGen` you get back from
+the already-present `uniformR` application and stuff it inside the `RPSCell` you
+construct.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+rpsInitial :: Int -> (Int, Int) -> RPSCell
+rpsInitial s (i, j) =
+  let r = mkStdGen (s + i * 10000 + j)
+      n = length strategies
+      (l, r') = uniformR (0, n - 1) r
+      (d, c) = strategies !! l
+   in RPSCell
+        { cellStrategy = d,
+          cellColour = c,
+          cellRNG = r'
+        }
+```
+
+</details>
+
+Now update `rpsInteract`. This involves tedious bookkeeping to ensure that each
+cell receives an updated RNG state. Note that if a cell is defeated and has its
+strategy and colour overwritten, it should still keep its original RNG state.
+
+<details> <summary>Open this to see the answer</summary>
+
+```Haskell
+rpsInteract :: (RPSCell, RPSCell) -> (RPSCell, RPSCell)
+rpsInteract (a, b) =
+  let (decision_a, r_a, next_a) = decide (cellStrategy a) (cellRNG a)
+      (decision_b, r_b, next_b) = decide (cellStrategy b) (cellRNG b)
+   in if decision_a `defeats` decision_b
+        then
+          ( a {cellStrategy = next_a, cellRNG = r_a},
+            b {cellStrategy = next_a, cellRNG = r_b, cellColour = cellColour a}
+          )
+        else
+          if decision_b `defeats` decision_a
+            then
+              ( a {cellStrategy = next_b, cellRNG = r_a, cellColour = cellColour b},
+                b {cellStrategy = next_b, cellRNG = r_b}
+              )
+            else
+              ( a {cellStrategy = next_a, cellRNG = r_a},
+                b {cellStrategy = next_b, cellRNG = r_b}
+              )
+```
+
+</details>
+
+Finally, do `cabal run` and enjoy the noise.

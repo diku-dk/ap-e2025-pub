@@ -1,4 +1,6 @@
-module BlockAutomaton.RPS () where
+module BlockAutomaton.RPS (Colour (..)) where
+
+data Colour = RGB Int Int Int deriving (Show, Eq)
 
 data RPS = Rock | Paper | Scissors
   deriving (Eq, Show)
