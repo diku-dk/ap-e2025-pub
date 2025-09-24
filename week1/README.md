@@ -26,7 +26,7 @@ most explicit example of this idea.
 ## Exercises
 
 The mandatory assignment builds directly on the concepts *and code* developed
-during the exercises. You are strongly adviced to complete the exercises before
+during the exercises. You are strongly advised to complete the exercises before
 embarking on the assignment. It may also be a useful exercise to do other
 exercises (unrelated to the assignment), for example the ones in *Programming in
 Haskell*.
@@ -54,7 +54,7 @@ The `APL.Eval` module will import `APL.AST` and define an evaluation function
 for APL programs.
 
 The `APL.Eval_Tests` module should import definitions from `APL.AST` and
-`APL.Eval` and tests them. It also imports unit testing modules from `tasty`.
+`APL.Eval` and then tests them. It also imports unit testing modules from `tasty`.
 Initially it imports almost nothing, so you will have to extend the `import`
 statements with the things you need.
 
