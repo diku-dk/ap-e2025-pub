@@ -6,7 +6,8 @@ None.
 
 ### Going Beyond
 
-TBD
+* [Cellular Automata](https://cell-auto.com/) by Tim Tyler, e.g., [the page on
+  Margolus neighbourhoods](https://cell-auto.com/neighbourhood/margolus/).
 
 ## Exercises
 
