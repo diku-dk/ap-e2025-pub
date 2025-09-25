@@ -467,7 +467,7 @@ block automatons via Margolus neighbourhoods. Remember to export the
 simulator can be used like so:
 
 ```
-> > observeGrid smoothen $ stepGrid smoothen $ initialGrid smoothen 4 4
+> observeGrid smoothen $ stepGrid smoothen $ initialGrid smoothen 4 4
 [[1,1,3,3],[1,1,3,3],[3,3,5,5],[3,3,5,5]]
 ```
 
