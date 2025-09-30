@@ -4,28 +4,30 @@
 import Control.Monad (ap, join)
 import Control.Arrow ((***))
 import Data.IORef
+import Data.Functor.Identity (Identity, runIdentity)
 
 
--- Free monad over functor f
-data Free f a
+-- Free monad over functor e
+data Free e a
   = Pure a
-  | Free (f (Free f a))
+  | Free (e (Free e a))
 
--- Functor instance
-instance Functor f => Functor (Free f) where
+-- Functor 
+instance Functor e => Functor (Free e) where
   fmap f (Pure x)  = Pure (f x)
   fmap f (Free fx) = Free (fmap (fmap f) fx)
 
--- Applicative instance
+-- Applicative 
 instance Functor f => Applicative (Free f) where
   pure = Pure
   Pure f  <*> fx = fmap f fx
   Free ff <*> fx = Free (fmap (<*> fx) ff)
 
--- Monad instance
+-- Monad 
 instance Functor f => Monad (Free f) where
   Pure x  >>= f = f x
   Free g >>= f = Free (fmap (>>= f) g)
+
 
 -- State monads over states of type s
 class (Monad m) => StateMonad m s where
@@ -48,7 +50,8 @@ instance Applicative (FState s) where
     
 instance Monad (FState s) where
   return = pure  -- default, can be omitted
-  (FState sa) >>= f = FState (uncurry ($) . (runFState . f *** id)  .  sa)
+  (FState sa) >>= f =
+       FState (uncurry ($) . (runFState . f *** id)  .  sa)
 
 instance StateMonad (FState s) s where
   put s = FState (const ((), s))
@@ -77,8 +80,7 @@ eval (Free g) = join $ fmap eval (interp g)
      where interp :: (StateMonad m s) => StateF s a -> m a
            interp (Put s a) = put s >> return a
            interp (Get f)   = get >>= return . f
-
-
+           
 runFreeState :: FreeState s a -> s -> (a, s)
 runFreeState = runFState . eval
 
@@ -194,6 +196,20 @@ fibM 1 = return 1
 fibM n = do x <- fibM (n - 1)
             y <- fibM (n - 2)
             return (x + y)
+
+-- Purely functional Fibonacci numbers (continuation-passing style)
+fibF :: Int -> Int
+fibF = runIdentity . fibM
+
+-- Fibonacci numbers with simple logging
+
+newtype FLog a = FLog ([String] -> (a, [String]))
+
+instance (Functor FLog) where
+  fmap f (FLog sa)) = FLog (f *** id) . sa
+instance (Applicative FLog) where
+  pure a = FLog $ \_ -> (a, [])
+  x <*> y = undefined
 
 data FibOp a
   = FibLog String a
