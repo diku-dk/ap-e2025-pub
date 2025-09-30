@@ -217,7 +217,8 @@ We still recommend you follow the course.
 
 ### Date
 
-Week 44, *most likely* the entire week (this is currently unclear).
+The exam is held from the morning of the 27th of October to the evening of the
+3rd of November.
 
 You are not expected to work full time for the entire period. The intended exam
 workload is specified as 25 hours of work in the course description.
