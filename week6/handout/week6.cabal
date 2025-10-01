@@ -1,0 +1,32 @@
+cabal-version:      3.0
+name:               week6
+version:            1.0.0.0
+build-type:         Simple
+
+common common
+    default-language: Haskell2010
+    ghc-options: -Wall -Wno-orphans
+
+library
+    import: common
+    hs-source-dirs: src
+    build-depends:
+        base
+      , QuickCheck
+    exposed-modules:
+        APL.AST
+        APL.Error
+        APL.Eval
+        APL.Check
+        APL.Tests
+
+test-suite week6-test
+    import: common
+    type: exitcode-stdio-1.0
+    main-is: runtests.hs
+    build-depends:
+        base
+      , tasty
+      , tasty-quickcheck
+      , week6
+
