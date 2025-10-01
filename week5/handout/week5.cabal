@@ -1,5 +1,5 @@
 cabal-version:      3.0
-name:               week6
+name:               week5
 version:            1.0.0.0
 build-type:         Simple
 
@@ -20,11 +20,11 @@ library
         SPC_Tests
         GenServer
 
-test-suite week6-tests
+test-suite week5-tests
     import: common
     type: exitcode-stdio-1.0
     main-is: runtests.hs
     build-depends:
         base
       , tasty
-      , week6
+      , week5
