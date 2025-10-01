@@ -482,9 +482,9 @@ jobStatus :: SPC -> JobId -> IO (Maybe JobStatus)
 
 * Add a constructor to `SPCMsg` for requesting the status of a job.
 
-* Handle the new message in `handleMsg`. If the provided `JobId` is
-  found in the list of pending jobs, then the response should be
-  `JobPending`, and otherwise `JobUnknown`.
+* Handle the new message in `handleMsg`. If the provided `JobId` is found in the
+  list of pending jobs, then the response should be `Just JobPending`, and
+  otherwise `Nothing`.
 
 * Implement the `jobStatus` function and add it to the module export
   list.
@@ -653,8 +653,8 @@ send a response to all relevant channels.
 
 1. Extend `SPCMsg` with a new message for waiting on a given job to finish.
 
-2. Extend `SPCState` with with a field of type `[(JobId, Chan
-   JobDoneReason)]`.
+2. Extend `SPCState` with with a field of type `[(JobId, ReplyChan (Maybe
+   JobDoneReason))]`.
 
 3. Extend `handleMsg` to handle the new message added in step 1.
 
