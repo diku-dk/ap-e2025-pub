@@ -57,7 +57,7 @@ mandated or suggested reading.
   [here](https://www.youtube.com/playlist?list=PLF1Z-APd9zK7usPMx3LGMZEHrECUGodd3)
   and
   [here](https://www.youtube.com/playlist?list=PLF1Z-APd9zK5uFc8FKr_di9bfsYv8-lbc))
-* [AP Course Notes]()
+* [AP Course Notes](https://diku-dk.github.io/ap-notes)
 * [Course notes from Brent Yorgey's UPenn Haskell
   course](https://www.cis.upenn.edu/~cis1940/spring13/lectures.html)
 
