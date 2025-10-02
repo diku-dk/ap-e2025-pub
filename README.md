@@ -152,11 +152,11 @@ The following rules apply to all assignments. They are intended to ease our
 correction process, and in particular to allow automated testing. Consider the
 assignments to be a specification or API that you are asked to implement.
 
-1. Do not modify the types of any definitions in the handout, except when the
-   assignment text explicitly instructs you to do so.
+1. Do not modify the types of any exported definitions in the handout, except
+   when the assignment text explicitly instructs you to do so.
 
-2. Do not rename or remove any definitions that are present in the handout,
-   except when the assignment text explicitly instructs you to do so.
+2. Do not rename or remove any exported definitions that are present in the
+   handout, except when the assignment text explicitly instructs you to do so.
 
 3. Do not remove anything from module export lists.
 
