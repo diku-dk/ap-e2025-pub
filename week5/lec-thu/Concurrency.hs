@@ -9,38 +9,14 @@ import Control.Concurrent
     readChan,   -- :: Chan a -> IO a           blocking read from message queue
     writeChan,  -- :: Chan a -> a -> IO ()     nonblocking write to message queue
     killThread, -- :: ThreadId -> IO ()        kill thread with given thread id
-    threadDelay -- :: Int -> IO ()             dealy thread for given number of microseconds
+    threadDelay, -- :: Int -> IO ()            delay thread for given number of microseconds
+    getChanContents
   )
 
 runThread :: IO ()
 runThread = do
   t <- forkIO $ putStrLn "Hello there."
   print t
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- Message logger
 messagePrinter1Example :: IO ()
@@ -63,28 +39,6 @@ messagePrinterExample = do
   writeChan c "The first"
   writeChan c "The second"
   writeChan c "The third"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- request-reply messages for a->b server functions
 data MsgG a b = MsgG a (Chan b)
@@ -111,30 +65,6 @@ serveExample = do
   incFun <- serve (\x -> x + 1)
   incFun 5 >>= print
   incFun 8 >>= print
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- Channel-based asynchronous evaluation
 
@@ -196,43 +126,6 @@ async f x = do
     noValueLoop chan []
   return $ Async reqChan
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 -- Example function: Fibonacchi numbers, very slowly
 fib :: Int -> Maybe Int
 fib n | n < 0 = Nothing
@@ -242,6 +135,7 @@ fib n = Just (fib' n)
       fib' 1 = 1
       fib' n = fib' (n-1) + fib' (n-2)
 
+-- Sequential writing of result strings into stdout buffer
 fibExample :: IO ()
 fibExample = do
   async fib 30 >>= get >>= print
@@ -251,12 +145,25 @@ fibExample = do
   async fib  3 >>= get >>= print
   return ()
 
-
+-- Concurrent writing of result strings into stdout buffer
 fibExample2 :: IO ()
-fibExample2 = do
-  forkIO $ async fib 30 >>= get >>= print
-  forkIO $ async fib 20 >>= get >>= print
-  forkIO $ async fib  8 >>= get >>= print
-  forkIO $ async fib 14 >>= get >>= print
-  forkIO $ async fib  3 >>= get >>= print
+fibExample2 = do {
+  forkIO (async fib 30 >>= get >>= print) ;
+  forkIO (async fib 20 >>= get >>= print) ;
+  forkIO $ async fib  8 >>= get >>= print ;
+  forkIO $ async fib 14 >>= get >>= print ;
+  forkIO $ async fib  3 >>= get >>= print ;
   return ()
+  }
+
+-- Concurrent writing of results into a result channel
+fibExample3 :: IO ()
+fibExample3 = do 
+  resChan <- newChan 
+  let write = writeChan resChan 
+  forkIO (async fib 34 >>= get >>= write) 
+  forkIO (async fib 20 >>= get >>= write) 
+  forkIO (async fib  8 >>= get >>= write) 
+  forkIO (async fib 14 >>= get >>= write) 
+  forkIO (async fib  3 >>= get >>= write)
+  getChanContents resChan >>= (return . take 5) >>= print
