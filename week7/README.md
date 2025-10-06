@@ -29,7 +29,7 @@ A [*block cellular
 automaton*](https://en.wikipedia.org/wiki/Block_cellular_automaton) is a variant
 of cellular automatons where the grid is partitioned into non-overlapping blocks
 and interactions take place only for the cells inside each block. By regularly
-shifting the partition of the grid into blocks, a cell still gets to eventually
+shifting how the grid is partitioned into blocks, a cell gets to eventually
 interact with all of its neighbours. Block cellular automatons are useful when
 the interactions are complicated or involve physical properties - for example,
 they are commonly used for [falling-sand
@@ -42,9 +42,11 @@ found by wrapping around to the opposite edge.
 
 ![Margolus neighbourhoods](margolus.png)
 
-The numbers serve only to identify which cells belong to the same
-neighbourhood---this is significant only in the odd case, where the
-neighbourhoods wrap around the edges of the grid.
+Note how the partitioning shifts by one along both dimensions. The numbers in
+the diagram serve only to identify which cells belong to the same neighbourhood.
+This is significant only in the odd case, where the neighbourhoods wrap around
+the edges of the grid. A block has no state or identity beyond the state of its
+constituent cells.
 
 **Note:** Margolus neighbourhoods are only well-defined when the grid size is an
 even number in both dimensions. For these exercises we will assume that this is
@@ -63,9 +65,10 @@ This is shown in the image below.
 
 ![Interactions](interactions.png)
 
-At the end of each iteration, the partitioning shifts by one. Note that this
-allows some concurrency within each Margolous neighbourhood, and more
-importantly, it also allows each neighbourhood to be updated independently.
+At the end of each iteration, the partitioning shifts by one along each
+dimension. Note that this allows some concurrency within each Margolous
+neighbourhood, and more importantly, it also allows each neighbourhood to be
+updated independently.
 
 As always, you will be working from a [code handout](handout/), and there are
 [solutions](solutions/) available. The handout is completely skeletal, with
