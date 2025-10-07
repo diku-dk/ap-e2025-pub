@@ -20,7 +20,7 @@ instance Monad CheckM where
   CheckM x >>= f = CheckM $ \vars ->
     let (y, errs1) = x vars
         (z, errs2) = runCheckM (f y) vars
-    in (z, union errs1 errs2)
+     in (z, union errs1 errs2)
 
 askVars :: CheckM Vars
 askVars = CheckM $ \vars -> (vars, [])

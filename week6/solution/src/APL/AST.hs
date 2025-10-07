@@ -1,8 +1,8 @@
 module APL.AST
-  ( VName
-  , Exp (..)
-  , printExp
-  , subExp
+  ( VName,
+    Exp (..),
+    printExp,
+    subExp,
   )
 where
 
@@ -65,18 +65,19 @@ printExp (TryCatch x y) =
   "try " ++ printExp x ++ " catch " ++ printExp y
 
 subExp :: Exp -> [Exp]
-subExp e = e : case e of
-  CstInt _ -> []
-  CstBool _ -> []
-  Add e1 e2 -> subExp e1 ++ subExp e2
-  Sub e1 e2 -> subExp e1 ++ subExp e2
-  Mul e1 e2 -> subExp e1 ++ subExp e2
-  Div e1 e2 -> subExp e1 ++ subExp e2
-  Pow e1 e2 -> subExp e1 ++ subExp e2
-  Eql e1 e2 -> subExp e1 ++ subExp e2
-  If e0 e1 e2 -> subExp e0 ++ subExp e1 ++ subExp e2
-  Var _ -> []
-  Let _ e1 e2 -> subExp e1 ++ subExp e2
-  Lambda _ body -> subExp body
-  Apply e1 e2 -> subExp e1 ++ subExp e2
-  TryCatch e1 e2 -> subExp e1 ++ subExp e2
+subExp e =
+  e : case e of
+    CstInt _ -> []
+    CstBool _ -> []
+    Add e1 e2 -> subExp e1 ++ subExp e2
+    Sub e1 e2 -> subExp e1 ++ subExp e2
+    Mul e1 e2 -> subExp e1 ++ subExp e2
+    Div e1 e2 -> subExp e1 ++ subExp e2
+    Pow e1 e2 -> subExp e1 ++ subExp e2
+    Eql e1 e2 -> subExp e1 ++ subExp e2
+    If e0 e1 e2 -> subExp e0 ++ subExp e1 ++ subExp e2
+    Var _ -> []
+    Let _ e1 e2 -> subExp e1 ++ subExp e2
+    Lambda _ body -> subExp body
+    Apply e1 e2 -> subExp e1 ++ subExp e2
+    TryCatch e1 e2 -> subExp e1 ++ subExp e2
