@@ -6,7 +6,6 @@ import Control.Arrow ((***))
 import Data.IORef
 import Data.Functor.Identity (Identity, runIdentity)
 
-
 -- Free monad over functor e
 data Free e a
   = Pure a
@@ -143,6 +142,7 @@ stackExampleFree = stackExampleM
 stackExampleFree2 :: FreeState [Integer] (Maybe Integer)
 stackExampleFree2 = stackExampleM2
 
+
 -- Imperative state implementation
 
 newtype IState s a = IState (IORef s -> IO a)
@@ -172,6 +172,7 @@ instance Monad (IState s) where
 instance StateMonad (IState s) s where
   put s = IState $ \ref -> writeIORef ref s
   get = IState readIORef
+
 
 tickI :: IState Int Int
 tickI = tickM 
@@ -206,10 +207,15 @@ fibF = runIdentity . fibM
 newtype FLog a = FLog ([String] -> (a, [String]))
 
 instance (Functor FLog) where
-  fmap f (FLog sa)) = FLog (f *** id) . sa
+  fmap f (FLog sa) = FLog $ \ss ->
+    let (a, ss') = sa ss
+    in (f a, ss')
+  
 instance (Applicative FLog) where
   pure a = FLog $ \_ -> (a, [])
   x <*> y = undefined
+
+type FibM a = Free FibOp a
 
 data FibOp a
   = FibLog String a
@@ -220,8 +226,6 @@ instance Functor FibOp where
     FibLog s $ f x
   fmap f (FibMemo n fibn c) =
     FibMemo n fibn $ \x -> f (c x)
-
-type FibM a = Free FibOp a
 
 fibLog :: String -> FibM ()
 fibLog s = Free $ FibLog s $ Pure ()
@@ -245,6 +249,7 @@ pureRunFibM (Free (FibLog _ c)) =
   pureRunFibM c
 pureRunFibM (Free (FibMemo _ fibn c)) =
   pureRunFibM $ c $ pureRunFibM fibn
+
 
 ioRunFibM :: FibM a -> IO a
 ioRunFibM (Pure x) = pure x
@@ -277,4 +282,3 @@ memoRunFibM m = fst <$> run [] m
         Nothing -> do
           (x, cache') <- run cache fibn
           run ((n, x) : cache') $ c x
-
