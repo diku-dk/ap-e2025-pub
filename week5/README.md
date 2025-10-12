@@ -704,7 +704,9 @@ handleMsg c = do
         Just reason -> do
           io $ reply rsvp $ Just reason
         Nothing ->
-          put $ state {spcWaiting = (jobid, rsvp) : spcWaiting state}
+          if jobid >= spcJobCounter state
+            then io $ reply rsvp Nothing
+            else put $ state {spcWaiting = (jobid, rsvp) : spcWaiting state}
 
 jobWait :: SPC -> JobId -> IO (Maybe JobDoneReason)
 jobWait (SPC c) jobid =

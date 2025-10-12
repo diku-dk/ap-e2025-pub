@@ -59,5 +59,13 @@ tests =
           r2 <- jobWait spc j2
           r2 @?= Just Done
           v <- readIORef ref
-          v @?= True
+          v @?= True,
+        testCase "unknown job" $ do
+          spc1 <- startSPC
+          j1 <- jobAdd spc1 $ Job (pure ()) 1
+          r1 <- jobWait spc1 j1
+          r1 @?= Just Done
+          spc2 <- startSPC
+          r2 <- jobWait spc2 j1
+          r2 @?= Nothing
       ]
