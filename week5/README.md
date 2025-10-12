@@ -46,9 +46,9 @@ to shut down the entire process, or maliciously try to subvert SPC
 itself. Since jobs are (for now) arbitrary `IO` actions, there is not
 any true security in SPC.
 
-This exercise permits you somewhat more freedom than most of the other 
-exercises. In particular, you are expected to largely design the message
-types yourself.
+This exercise permits you somewhat more freedom than most of the other
+exercises. In particular, you are expected to largely design the message types
+(the "protocol") yourself.
 
 You must use the abstractions provided by `GenServer`, as discussed in
 the course notes. However, for some functionality, you will need to
