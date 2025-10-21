@@ -46,9 +46,9 @@ to shut down the entire process, or maliciously try to subvert SPC
 itself. Since jobs are (for now) arbitrary `IO` actions, there is not
 any true security in SPC.
 
-This exercise permits you somewhat more freedom than most of the other 
-exercises. In particular, you are expected to largely design the message
-types yourself.
+This exercise permits you somewhat more freedom than most of the other
+exercises. In particular, you are expected to largely design the message types
+(the "protocol") yourself.
 
 You must use the abstractions provided by `GenServer`, as discussed in
 the course notes. However, for some functionality, you will need to
@@ -704,7 +704,9 @@ handleMsg c = do
         Just reason -> do
           io $ reply rsvp $ Just reason
         Nothing ->
-          put $ state {spcWaiting = (jobid, rsvp) : spcWaiting state}
+          if jobid >= spcJobCounter state
+            then io $ reply rsvp Nothing
+            else put $ state {spcWaiting = (jobid, rsvp) : spcWaiting state}
 
 jobWait :: SPC -> JobId -> IO (Maybe JobDoneReason)
 jobWait (SPC c) jobid =

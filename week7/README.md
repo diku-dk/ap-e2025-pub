@@ -2,7 +2,7 @@
 
 ## Suggested Reading
 
-None.
+* [Course Notes Chapter 7](https://diku-dk.github.io/ap-notes/chapter_7.html)
 
 ### Going Beyond
 
