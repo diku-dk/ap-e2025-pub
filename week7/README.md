@@ -659,7 +659,7 @@ rpsInitial :: Int -> (Int, Int) -> RPSCell
 Now the procedure is to generate a `StdGen` using seed `s + i * 10000 + j` -
 this means every cell will have a (potentially) different `StdGen`. Using this
 `StdGen`, pick a random element from the `strategies` list. This is done by
-generating a random number in the range `[1, length strategies]`, then indexing
+generating a random number in the range `[0, length strategies-1]`, then indexing
 with `!!`. Finally, construct an `RPSCell` that contains the picked colour and
 strategy.
 
