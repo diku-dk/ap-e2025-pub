@@ -4,6 +4,10 @@
 
 * [Course Notes Chapter 7](https://diku-dk.github.io/ap-notes/chapter_7.html)
 
+## Slides
+
+* [Thursday](7b.pdf)
+
 ### Going Beyond
 
 * [Cellular Automata](https://cell-auto.com/) by Tim Tyler, e.g., [the page on
