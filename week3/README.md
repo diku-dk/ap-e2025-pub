@@ -668,6 +668,10 @@ Exp ::= LExp
       | Exp "/" Exp
 ```
 
+An `if` expression extends as far as possible, meaning `if x then x else x + x`
+is understood as `if x then x else (x + x)`, rather than as `(if x then x else
+x) + x`.
+
 Implement this grammar. Remember to handle the new keywords `if`, `then`, and `else`.
 
 #### Solution
